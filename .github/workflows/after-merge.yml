@@ -1,0 +1,87 @@
+name: After Merge
+env:
+  AWS_REGION: us-east-1
+  CODEDEPLOY_APPLICATION_NAME: csye6225-webapp
+  CODEDEPLOY_APPLICATION_DEPLOYMENT_GROUP_NAME: csye6225-webapp-deployment
+  ARTIFACT_NAME: webservice-${{ github.sha }}.zip
+on:
+  push:
+    branches: 
+    - main
+jobs:
+  build:
+    name: on-push
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version:
+        - 14.x
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - name: Install Node Packages
+      run: npm ci
+    - name: zip files
+      run: |
+        zip -r webservice.zip .
+    - name: Packer Init
+      uses: hashicorp/packer-github-actions@master
+      with:
+        command: init
+        target: ami-builder.pkr.hcl
+    - name: Packer Validate
+      uses: hashicorp/packer-github-actions@master
+      with:
+        command: validate --syntax-only
+        target: ami-builder.pkr.hcl
+    - name: Packer Build
+      uses: hashicorp/packer-github-actions@master
+      with:
+        command: build
+        arguments: -var=AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} -var=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        target: ami-builder.pkr.hcl
+
+  code_deploy:
+    runs-on: ubuntu-latest
+    name: Run CodeDeploy
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Install AWS Cli
+      run: sudo pip install awscli
+    # - name: Building Deployment Revision
+    #   run: |
+    #     mkdir codedeploy_artifact
+    #     zip -r webservice-${{ github.sha }}.zip .
+    #     mv webservice-${{ github.sha }}.zip codedeploy_artifact
+    #     cd codedeploy_artifact
+    - name: configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_GHUSER_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_GHUSER_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    - name: Copy artifacts to S3
+      run: |
+        aws deploy push --application-name csye6225-webapp --s3-location s3://${{ secrets.AWS_BUCKET }}/${{ env.ARTIFACT_NAME }}
+    - name: CodeDeploy 
+      run: |
+        output=$(aws deploy create-deployment \
+          --application-name csye6225-webapp \
+          --deployment-config-name CodeDeployDefault.AllAtOnce \
+          --deployment-group-name csye6225-webapp-deployment \
+          --file-exists-behavior OVERWRITE \
+          --s3-location bucket=${{ secrets.AWS_BUCKET }},key=${{ env.ARTIFACT_NAME }},bundleType=zip \
+          --region ${{ env.AWS_REGION }} \
+          --output json)
+
+          echo $output
+          dId=$(echo $output | jq -r '.deploymentId')
+          aws deploy wait deployment-successful --deployment-id $dId
+      env:
+        AWS_REGION: ${{ env.AWS_REGION }}
+        AWS_CODEDEPLOY_BUCKET: ${{ secrets.AWS_BUCKET }}
