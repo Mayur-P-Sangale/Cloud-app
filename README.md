@@ -1,5 +1,3 @@
-# NETWORK STRUCTURES AND CLOUD COMPUTING COURSE SPRING2022
-This is a Repository for the course Network Structures and Cloud Computing at Northeastern University.  
 ------------------
 Prerequisites:
 1. Node
