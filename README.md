@@ -15,7 +15,7 @@ Steps to Build the Application:
 4. run "npm test" -- to run mocha test cases
 ------------------
 Starting mysql server locally:
-mysql -u root -pmuraliroot
+mysql -u root
 ------------------ 
 Steps to install Packer:
 1. brew tap hashicorp/tap
@@ -37,7 +37,7 @@ To delete AMI and packer snapshot:
 2. aws ec2 delete-snapshot --snapshot-id <snapshot-ID> --region us-east-1
 ----------------------
 To run Jmeter Tests:
-sh jmeter -n -t /Users/murali/Downloads/apache-jmeter-5.4.3/bin/csye6225-testPlan.jmx
+sh jmeter -n -t /Users/Downloads/apache-jmeter-5.4.3/bin/csye6225-testPlan.jmx
 -------------------
 Cmds to check SSL status in RDS:
 1. \s
